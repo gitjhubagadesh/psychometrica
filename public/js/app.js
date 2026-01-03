@@ -1251,9 +1251,10 @@ app.controller('TestController', function ($scope, $http, $location) {
     $scope.loadTests();
 });
 
-app.controller('TestFactorController', function ($scope, $http, $location, $timeout) {
+app.controller('TestFactorController', function ($scope, $http, $location, $timeout, PaginationService) {
     $scope.test_factors = [];
     $scope.newTestFactor = {};
+    $scope.pagination = PaginationService.getPagination(); // Get shared pagination object
 
     $scope.resetForm = function () {
         $scope.newTestFactor = {}; // Reset the form by clearing newTest object
@@ -1296,10 +1297,16 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
     };
 
     $scope.loadTests = function () {
-        $http.get('/admin/getTestFactorList')
-                .then(function (response) {
-                    $scope.test_factors = response.data.test_factors;
-                });
+        $http.get('/admin/getTestFactorList', {
+            params: {
+                limit: $scope.pagination.limit,
+                offset: ($scope.pagination.currentPage - 1) * $scope.pagination.limit,
+                search: $scope.searchText
+            }
+        }).then(function (response) {
+            $scope.test_factors = response.data.test_factors;
+            PaginationService.setTotalPages(response.data.total);
+        });
     };
 
     $scope.toggleStatus = function (factor) {
@@ -1350,8 +1357,6 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
                                 icon: "success",
                                 backdrop: false // Disables the dark background overlay
                             });
-
-                            $scope.fetchData(); // Refresh user list
                         }, function (error) {
                             Swal.fire({
                                 title: "Error!",
@@ -1362,6 +1367,98 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
                         });
             }
         });
+    };
+
+    // Watch for changes in search and reset pagination
+    $scope.$watch('searchText', function (newVal, oldVal) {
+        if (newVal !== oldVal) {
+            $scope.pagination.currentPage = 1;
+            $scope.loadTests();
+        }
+    });
+
+    $scope.updateRowsPerPage = function () {
+        $scope.pagination.currentPage = 1; // Reset to first page
+        $scope.loadTests(); // Reload data with new limit
+    };
+
+    // Navigation Methods
+    $scope.nextPage = function () {
+        if ($scope.pagination.currentPage < $scope.pagination.totalPages) {
+            $scope.pagination.currentPage++;
+            $scope.loadTests();
+        }
+    };
+
+    $scope.prevPage = function () {
+        if ($scope.pagination.currentPage > 1) {
+            $scope.pagination.currentPage--;
+            $scope.loadTests();
+        }
+    };
+
+    $scope.goToPage = function (page) {
+        $scope.pagination.currentPage = page;
+        $scope.loadTests();
+    };
+
+    $scope.getPageNumbers = function () {
+        const totalPages = $scope.pagination.totalPages;
+        const currentPage = $scope.pagination.currentPage;
+        const maxVisible = 5; // Max visible pages at once (excluding ellipses and first/last)
+        const pages = [];
+
+        // If total pages <= maxVisible + 2 (accounting for first/last), show all
+        if (totalPages <= maxVisible + 2) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+            return pages;
+        }
+
+        // Always show first page
+        pages.push(1);
+
+        // Calculate the range around the current page
+        let startPage = Math.max(2, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible / 2));
+
+        // Adjust if we're at the beginning or end
+        if (currentPage <= Math.floor(maxVisible / 2) + 1) {
+            endPage = maxVisible + 1;
+        } else if (currentPage >= totalPages - Math.floor(maxVisible / 2)) {
+            startPage = totalPages - maxVisible;
+        }
+
+        // Add ellipsis or pages between first and current range
+        if (startPage > 2) {
+            pages.push('...');
+        } else {
+            // If no ellipsis needed, fill in the gap
+            for (let i = 2; i < startPage; i++) {
+                pages.push(i);
+            }
+        }
+
+        // Add the calculated range around current page
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        // Add ellipsis or pages between current range and last
+        if (endPage < totalPages - 1) {
+            pages.push('...');
+        } else {
+            // If no ellipsis needed, fill in the gap
+            for (let i = endPage + 1; i < totalPages; i++) {
+                pages.push(i);
+            }
+        }
+
+        // Always show last page
+        pages.push(totalPages);
+
+        return pages;
     };
 
     $scope.addTestFactor = function (factorId) {

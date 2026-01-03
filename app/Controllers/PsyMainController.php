@@ -367,8 +367,13 @@ class PsyMainController extends BaseController {
     }
 
     public function getTestFactorList() {
+        $limit = $this->request->getGet('limit') ?? 10;
+        $offset = $this->request->getGet('offset') ?? 0;
+        $search = $this->request->getGet('search') ?? '';
+
         $data = [
-            'test_factors' => $this->adminModel->getAllPsyTestFactor(),
+            'test_factors' => $this->adminModel->getAllPsyTestFactor($limit, $offset, $search),
+            'total' => $this->adminModel->getTestFactorCount($search),
             'test_reports' => $this->adminModel->getTestReportList()
         ];
 

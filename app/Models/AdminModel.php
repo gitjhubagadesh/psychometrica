@@ -223,11 +223,41 @@ class AdminModel extends Model {
         return $branch;
     }
 
-    public function getAllPsyTestFactor() {
+    public function getAllPsyTestFactor($limit = null, $offset = 0, $search = '') {
         $builder = $this->db->table('psy_test_factor');
+
+        // Apply search filter if provided
+        if (!empty($search)) {
+            $builder->groupStart()
+                    ->like('factor_name', $search)
+                    ->orLike('prefix', $search)
+                    ->orLike('factor_description', $search)
+                    ->groupEnd();
+        }
+
+        // Apply pagination if limit is provided
+        if ($limit !== null) {
+            $builder->limit($limit, $offset);
+        }
+
         $query = $builder->get();
 
         return $query->getResult();
+    }
+
+    public function getTestFactorCount($search = '') {
+        $builder = $this->db->table('psy_test_factor');
+
+        // Apply search filter if provided
+        if (!empty($search)) {
+            $builder->groupStart()
+                    ->like('factor_name', $search)
+                    ->orLike('prefix', $search)
+                    ->orLike('factor_description', $search)
+                    ->groupEnd();
+        }
+
+        return $builder->countAllResults();
     }
 
     public function getTestReportList() {
