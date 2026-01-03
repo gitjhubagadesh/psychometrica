@@ -157,8 +157,8 @@
                     </li>
 
                     <li ng-repeat="page in getPageNumbers()"
-                        ng-class="{ 'active': page === pagination.currentPage }">
-                        <a href ng-click="goToPage(page)">{{ page}}</a>
+                        ng-class="{ 'active': page === pagination.currentPage, 'disabled': page === '...' }">
+                        <a href ng-click="page !== '...' && goToPage(page)">{{ page}}</a>
                     </li>
 
                     <li ng-class="{ 'disabled': pagination.currentPage >= pagination.totalPages }">

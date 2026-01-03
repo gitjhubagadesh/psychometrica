@@ -1403,7 +1403,62 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
     };
 
     $scope.getPageNumbers = function () {
-        return PaginationService.getPageNumbers();
+        const totalPages = $scope.pagination.totalPages;
+        const currentPage = $scope.pagination.currentPage;
+        const maxVisible = 5; // Max visible pages at once (excluding ellipses and first/last)
+        const pages = [];
+
+        // If total pages <= maxVisible + 2 (accounting for first/last), show all
+        if (totalPages <= maxVisible + 2) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+            return pages;
+        }
+
+        // Always show first page
+        pages.push(1);
+
+        // Calculate the range around the current page
+        let startPage = Math.max(2, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible / 2));
+
+        // Adjust if we're at the beginning or end
+        if (currentPage <= Math.floor(maxVisible / 2) + 1) {
+            endPage = maxVisible + 1;
+        } else if (currentPage >= totalPages - Math.floor(maxVisible / 2)) {
+            startPage = totalPages - maxVisible;
+        }
+
+        // Add ellipsis or pages between first and current range
+        if (startPage > 2) {
+            pages.push('...');
+        } else {
+            // If no ellipsis needed, fill in the gap
+            for (let i = 2; i < startPage; i++) {
+                pages.push(i);
+            }
+        }
+
+        // Add the calculated range around current page
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        // Add ellipsis or pages between current range and last
+        if (endPage < totalPages - 1) {
+            pages.push('...');
+        } else {
+            // If no ellipsis needed, fill in the gap
+            for (let i = endPage + 1; i < totalPages; i++) {
+                pages.push(i);
+            }
+        }
+
+        // Always show last page
+        pages.push(totalPages);
+
+        return pages;
     };
 
     $scope.addTestFactor = function (factorId) {
