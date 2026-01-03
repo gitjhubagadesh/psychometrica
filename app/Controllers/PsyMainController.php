@@ -367,7 +367,8 @@ class PsyMainController extends BaseController {
     }
 
     public function getTestFactorList() {
-        $limit = $this->request->getGet('limit') ?? 10;
+        // Only apply pagination if limit is explicitly provided
+        $limit = $this->request->getGet('limit') !== null ? (int)$this->request->getGet('limit') : null;
         $offset = $this->request->getGet('offset') ?? 0;
         $search = $this->request->getGet('search') ?? '';
 
