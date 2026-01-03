@@ -1,0 +1,31 @@
+UNUSED DATABASE TABLES - QUICK REFERENCE
+=========================================
+
+COMPLETELY UNUSED (No code references - only in migrations):
+
+1.  psy_pdf_experience_levels
+2.  psy_pdf_percentile_bands
+3.  psy_pdf_score_percentiles
+4.  psy_pdf_skill_categories
+5.  psy_report_authenticity_metadata
+6.  psy_report_band_ranges
+7.  psy_report_factors
+8.  psy_report_intro_content
+9.  psy_roles
+10. psy_sub_sections
+11. psy_test_sections
+
+MINIMALLY USED (Only 1 code reference - in AdminModel.php):
+
+12. psy_factor_mapping
+13. psy_languages
+14. psy_report_metadata_definitions
+15. psy_report_top_skills
+16. psy_skill_statements
+
+TOTAL: 16 tables are either unused or minimally used
+
+NOTE: All these tables contain data, suggesting they are 
+prepared for future features (likely PDF report generation).
+
+For detailed analysis, see: UNUSED_TABLES_REPORT.md
