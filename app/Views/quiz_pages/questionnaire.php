@@ -72,6 +72,32 @@
         margin-left: 0.5rem;
         min-width: 80px;
         text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    /* Timer Warning States */
+    .timer-warning {
+        background-color: #fff3cd !important;
+        color: #856404 !important;
+        border: 2px solid #ffc107 !important;
+    }
+
+    .timer-critical {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+        border: 2px solid #dc3545 !important;
+        animation: pulse-timer 1s infinite;
+    }
+
+    @keyframes pulse-timer {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+        }
     }
 
     /* Main Quiz Container */
@@ -341,8 +367,12 @@
                     <h4 class="text-white pe-3 pe-md-5">Quiz</h4>
                     <span class="text-white">Time start</span>
                 </div>
-                <div class="count_number p-2 d-flex justify-content-center align-items-center bg-white rounded-pill countdown_timer">
-                    <span class="text-dark fw-bold">{{ timerDisplay}}</span>
+                <div class="count_number p-2 d-flex justify-content-center align-items-center bg-white rounded-pill countdown_timer"
+                     ng-class="{'timer-warning': timerWarning && !timerCritical, 'timer-critical': timerCritical}">
+                    <span class="fw-bold"
+                          ng-class="{'text-dark': !timerWarning, 'text-warning': timerWarning && !timerCritical, 'text-danger': timerCritical}">
+                        {{ timerDisplay}}
+                    </span>
                 </div>
             </div>
         </div>

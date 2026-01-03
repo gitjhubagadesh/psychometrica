@@ -36,6 +36,10 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
     $scope.testName = 'Quiz';
     $scope.isTimerRunning = false;
 
+    // Timer warning and critical states for CSS styling
+    $scope.timerWarning = false;
+    $scope.timerCritical = false;
+
 
     $scope.isOnline = navigator.onLine; // Initial state
 
@@ -73,7 +77,7 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
     let timerInterval;
     let totalSeconds = 60; // default 60 seconds — you can update this dynamically
 
-    // Converts seconds to MM:SS
+    // Converts seconds to HH:MM:SS format (consolidated function)
     function formatTime(seconds) {
         const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
         const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -81,17 +85,7 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
         return `${h}:${m}:${s}`;
     }
 
-    function formatTime1(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-
-        return (h > 0 ? String(h).padStart(2, '0') : '00') + ':' +
-                String(m).padStart(2, '0') + ':' +
-                String(s).padStart(2, '0');
-    }
-
-    // Start timer function
+    // Start timer function with enhanced warnings and auto-save
     $scope.startTimer = function (duration) {
         // Clean up any existing timers first
         $scope.cleanupAllTimers();
@@ -110,17 +104,91 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
         timerInterval = $interval(function () {
             duration--;
 
+            // Update display
+            $scope.timerDisplay = formatTime(duration);
+
+            // Visual warnings for low time
+            if (duration <= 60 && duration > 30) {
+                $scope.timerWarning = true;
+                $scope.timerCritical = false;
+            } else if (duration <= 30) {
+                $scope.timerWarning = true;
+                $scope.timerCritical = true;
+            }
+
+            // Audio/Visual warnings at specific intervals
+            if (duration === 300 && !$scope.timerState.warnings[300]) {
+                $scope.showTimerWarning("5 minutes remaining!");
+                $scope.timerState.warnings[300] = true;
+            }
+
+            if (duration === 60 && !$scope.timerState.warnings[60]) {
+                $scope.showTimerWarning("1 minute remaining!");
+                $scope.timerState.warnings[60] = true;
+            }
+
+            if (duration === 30 && !$scope.timerState.warnings[30]) {
+                $scope.showTimerWarning("30 seconds remaining!");
+                $scope.timerState.warnings[30] = true;
+            }
+
+            // Timer expired - save answers and move to next factor
             if (duration <= 0) {
-                $scope.cleanupAllTimers();
-                $scope.autoNext = true;
-                $scope.moveToNextFactor();
-            } else {
-                $scope.timerDisplay = formatTime(duration);
+                $scope.handleTimerExpired();
             }
         }, 1000);
 
         // Track this timer
         $scope.timerState.activeTimers.push(timerInterval);
+    };
+
+    // Handle timer expiration with answer saving
+    $scope.handleTimerExpired = function () {
+        $scope.cleanupAllTimers();
+
+        // Save all pending answers before moving
+        $scope.flushRemainingAnswers();
+
+        // Calculate answered vs total questions for current factor
+        let currentFactor = $scope.getCurrentFactor();
+        let totalQuestions = currentFactor ? currentFactor.questions.length : 0;
+        let answeredCount = currentFactor ? currentFactor.questions.filter(q =>
+            $scope.selectedAnswer[q.id] && $scope.selectedAnswer[q.id].option_id
+        ).length : 0;
+        let unansweredCount = totalQuestions - answeredCount;
+
+        let factorName = currentFactor ? currentFactor.factorName : 'This section';
+        let messageText = unansweredCount > 0
+            ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
+            : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
+
+        Swal.fire({
+            title: "⏰ Time's Up!",
+            html: `<div style="text-align: center;">${messageText}<br><br><p style="margin-top: 15px; color: #666;">Moving to the next section...</p></div>`,
+            icon: "warning",
+            timer: 5000,
+            showConfirmButton: false,
+            timerProgressBar: true,
+            allowOutsideClick: false
+        }).then(function () {
+            $scope.$apply(function () {
+                $scope.autoNext = true;
+                $scope.moveToNextFactor();
+            });
+        });
+    };
+
+    // Show timer warning toast notification
+    $scope.showTimerWarning = function (message) {
+        Swal.fire({
+            title: message,
+            icon: "warning",
+            toast: true,
+            position: 'top-end',
+            timer: 3000,
+            showConfirmButton: false,
+            timerProgressBar: true
+        });
     };
 
     $scope.moveToNextFactor = function () {
@@ -144,8 +212,15 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
     $scope.hasDisplayedInstruction = false; // Initialize at the beginning
 
     $scope.startQuiz = function () {
+        console.log("*** START QUIZ CALLED ***");
+        console.log("Before: currentQuestionIndex =", $scope.currentQuestionIndex);
+        console.log("Before: autoNext =", $scope.autoNext);
         $scope.hasDisplayedInstruction = true; // Mark instruction as displayed
         $scope.currentQuestionIndex = 0;       // Start from the first question
+        $scope.autoNext = false;               // ✅ FIX: Enable validation for first question
+        console.log("After: currentQuestionIndex =", $scope.currentQuestionIndex);
+        console.log("After: autoNext =", $scope.autoNext);
+        console.log("*************************");
         $scope.startFactorTimer();              // Start timer for factors if necessary
     };
 
@@ -265,7 +340,8 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
     // Add this at the beginning of your controller
     $scope.timerState = {
         activeTimers: [],
-        isMemoryTimerActive: false
+        isMemoryTimerActive: false,
+        warnings: {30: false, 60: false, 300: false} // Track timer warnings
     };
 
 // Completely clean up all timers
@@ -284,6 +360,9 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
         $scope.isTimerRunning = false;
         $scope.timerDisplay = null;
         $scope.countdownTime = 0;
+        $scope.timerWarning = false;
+        $scope.timerCritical = false;
+        $scope.timerState.warnings = {30: false, 60: false, 300: false};
     };
 
     $scope.goToNext = function () {
@@ -295,7 +374,13 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
 
         // If we're at the start of the factor (currentQuestionIndex === -1)
         if ($scope.currentQuestionIndex === -1) {
+            console.log("*** FIRST QUESTION INITIALIZATION ***");
+            console.log("Setting currentQuestionIndex to 0");
+            console.log("Setting autoNext to false");
             $scope.currentQuestionIndex = 0;  // Initialize to first question
+            $scope.autoNext = false; // Enable validation for first question
+            console.log("autoNext is now:", $scope.autoNext);
+            console.log("***********************************");
 
             // Handle memory image
             if (currentFactor?.memoryQuestion === 'TRUE' && !$scope.memoryImageShown) {
@@ -315,6 +400,7 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
 
             // Start timer for regular questions
             $scope.startFactorTimer();
+            return; // Return here to show the first question without moving forward
         }
 
         let currentQuestion = $scope.getCurrentQuestion();
@@ -326,6 +412,20 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
         let selectedOption = $scope.selectedAnswer[currentQuestionId];
         let isMandatory = currentFactor?.isMandatory === "1" || currentQuestion?.is_mandatory === "1";
         let isDemo = currentQuestion?.is_demo === "0"; // true if it's a live question
+
+        // DEBUG: Log validation variables
+        console.log("=== MANDATORY VALIDATION DEBUG ===");
+        console.log("Current Question Index:", $scope.currentQuestionIndex);
+        console.log("Question ID:", currentQuestionId);
+        console.log("Question is_demo:", currentQuestion?.is_demo);
+        console.log("Question is_mandatory:", currentQuestion?.is_mandatory);
+        console.log("Factor isMandatory:", currentFactor?.isMandatory);
+        console.log("Computed isDemo (is_demo === '0'):", isDemo);
+        console.log("Computed isMandatory:", isMandatory);
+        console.log("Selected Option:", selectedOption);
+        console.log("autoNext flag:", $scope.autoNext);
+        console.log("Validation will run:", !isDemo && isMandatory && (!selectedOption || !selectedOption.option_id) && !$scope.autoNext);
+        console.log("==================================");
 
         if (!isDemo && isMandatory && (!selectedOption || !selectedOption.option_id) && !$scope.autoNext) {
             Swal.fire({
@@ -435,14 +535,14 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
                     : factor.factor_timer;
 
             $scope.countdownTime = parseTimerToSeconds(rawTime);
-            $scope.timerDisplay = formatTime1($scope.countdownTime);
+            $scope.timerDisplay = formatTime($scope.countdownTime);
             $scope.showMemoryImage = true;
             $scope.timerState.isMemoryTimerActive = true;
 
             memoryImageInterval = $interval(function () {
                 if ($scope.countdownTime > 0) {
                     $scope.countdownTime--;
-                    $scope.timerDisplay = formatTime1($scope.countdownTime);
+                    $scope.timerDisplay = formatTime($scope.countdownTime);
                 } else {
                     $scope.cleanupAllTimers();
                     $scope.showMemoryImage = false;
@@ -737,6 +837,10 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
     $scope.currentFactorIndex = 0;  // first factor
     $scope.currentQuestionIndex = 0; // no question yet
 
+    // Timer warning and critical states for CSS styling
+    $scope.timerWarning = false;
+    $scope.timerCritical = false;
+
 
     $scope.isOnline = navigator.onLine; // Initial state
 
@@ -790,7 +894,7 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
     let timerInterval;
     let totalSeconds = 60; // default 60 seconds — you can update this dynamically
 
-    // Converts seconds to MM:SS
+    // Converts seconds to HH:MM:SS format (consolidated function)
     function formatTime(seconds) {
         const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
         const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -798,17 +902,7 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
         return `${h}:${m}:${s}`;
     }
 
-    function formatTime1(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-
-        return (h > 0 ? String(h).padStart(2, '0') : '00') + ':' +
-                String(m).padStart(2, '0') + ':' +
-                String(s).padStart(2, '0');
-    }
-
-    // Start timer function
+    // Start timer function with enhanced warnings and auto-save
     $scope.startTimer = function (duration) {
         // Clean up any existing timers first
         $scope.cleanupAllTimers();
@@ -827,17 +921,91 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
         timerInterval = $interval(function () {
             duration--;
 
+            // Update display
+            $scope.timerDisplay = formatTime(duration);
+
+            // Visual warnings for low time
+            if (duration <= 60 && duration > 30) {
+                $scope.timerWarning = true;
+                $scope.timerCritical = false;
+            } else if (duration <= 30) {
+                $scope.timerWarning = true;
+                $scope.timerCritical = true;
+            }
+
+            // Audio/Visual warnings at specific intervals
+            if (duration === 300 && !$scope.timerState.warnings[300]) {
+                $scope.showTimerWarning("5 minutes remaining!");
+                $scope.timerState.warnings[300] = true;
+            }
+
+            if (duration === 60 && !$scope.timerState.warnings[60]) {
+                $scope.showTimerWarning("1 minute remaining!");
+                $scope.timerState.warnings[60] = true;
+            }
+
+            if (duration === 30 && !$scope.timerState.warnings[30]) {
+                $scope.showTimerWarning("30 seconds remaining!");
+                $scope.timerState.warnings[30] = true;
+            }
+
+            // Timer expired - save answers and move to next factor
             if (duration <= 0) {
-                $scope.cleanupAllTimers();
-                $scope.autoNext = true;
-                $scope.moveToNextFactor();
-            } else {
-                $scope.timerDisplay = formatTime(duration);
+                $scope.handleTimerExpired();
             }
         }, 1000);
 
         // Track this timer
         $scope.timerState.activeTimers.push(timerInterval);
+    };
+
+    // Handle timer expiration with answer saving
+    $scope.handleTimerExpired = function () {
+        $scope.cleanupAllTimers();
+
+        // Save all pending answers before moving
+        $scope.flushRemainingAnswers();
+
+        // Calculate answered vs total questions for current factor
+        let currentFactor = $scope.getCurrentFactor();
+        let totalQuestions = currentFactor ? currentFactor.questions.length : 0;
+        let answeredCount = currentFactor ? currentFactor.questions.filter(q =>
+            $scope.selectedAnswer[q.id] && $scope.selectedAnswer[q.id].option_id
+        ).length : 0;
+        let unansweredCount = totalQuestions - answeredCount;
+
+        let factorName = currentFactor ? currentFactor.factorName : 'This section';
+        let messageText = unansweredCount > 0
+            ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
+            : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
+
+        Swal.fire({
+            title: "⏰ Time's Up!",
+            html: `<div style="text-align: center;">${messageText}<br><br><p style="margin-top: 15px; color: #666;">Moving to the next section...</p></div>`,
+            icon: "warning",
+            timer: 5000,
+            showConfirmButton: false,
+            timerProgressBar: true,
+            allowOutsideClick: false
+        }).then(function () {
+            $scope.$apply(function () {
+                $scope.autoNext = true;
+                $scope.moveToNextFactor();
+            });
+        });
+    };
+
+    // Show timer warning toast notification
+    $scope.showTimerWarning = function (message) {
+        Swal.fire({
+            title: message,
+            icon: "warning",
+            toast: true,
+            position: 'top-end',
+            timer: 3000,
+            showConfirmButton: false,
+            timerProgressBar: true
+        });
     };
 
     $scope.moveToNextFactor = function () {
@@ -861,8 +1029,15 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
     $scope.hasDisplayedInstruction = false; // Initialize at the beginning
 
     $scope.startQuiz = function () {
+        console.log("*** START QUIZ CALLED (Cognitive) ***");
+        console.log("Before: currentQuestionIndex =", $scope.currentQuestionIndex);
+        console.log("Before: autoNext =", $scope.autoNext);
         $scope.hasDisplayedInstruction = true;
         $scope.currentQuestionIndex = 0;
+        $scope.autoNext = false;               // ✅ FIX: Enable validation for first question
+        console.log("After: currentQuestionIndex =", $scope.currentQuestionIndex);
+        console.log("After: autoNext =", $scope.autoNext);
+        console.log("**************************************");
 
         let currentQuestion = $scope.getCurrentQuestion();
 
@@ -1060,7 +1235,8 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
     // Add this at the beginning of your controller
     $scope.timerState = {
         activeTimers: [],
-        isMemoryTimerActive: false
+        isMemoryTimerActive: false,
+        warnings: {30: false, 60: false, 300: false} // Track timer warnings
     };
 
 // Completely clean up all timers
@@ -1079,6 +1255,9 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
         $scope.isTimerRunning = false;
         $scope.timerDisplay = null;
         $scope.countdownTime = 0;
+        $scope.timerWarning = false;
+        $scope.timerCritical = false;
+        $scope.timerState.warnings = {30: false, 60: false, 300: false};
     };
 
     $scope.startQuizAutomatically = function () {
@@ -1126,8 +1305,10 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
 
             // Start first question
             $scope.currentQuestionIndex = 0;
+            $scope.autoNext = false; // Enable validation for first question
             $scope.startFactorTimer();
             $scope.loadCurrentQuestion();
+            return; // Return here to show the first question without moving forward
         }
 
         let currentQuestion = $scope.getCurrentQuestion();
@@ -1284,14 +1465,14 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
                     : factor.factor_timer;
 
             $scope.countdownTime = parseTimerToSeconds(rawTime);
-            $scope.timerDisplay = formatTime1($scope.countdownTime);
+            $scope.timerDisplay = formatTime($scope.countdownTime);
             $scope.showMemoryImage = true;
             $scope.timerState.isMemoryTimerActive = true;
 
             memoryImageInterval = $interval(function () {
                 if ($scope.countdownTime > 0) {
                     $scope.countdownTime--;
-                    $scope.timerDisplay = formatTime1($scope.countdownTime);
+                    $scope.timerDisplay = formatTime($scope.countdownTime);
                 } else {
                     $scope.cleanupAllTimers();
                     $scope.showMemoryImage = false;
