@@ -933,7 +933,7 @@ class PsyMainController extends BaseController {
 
         // Select required columns
         $columns = "
-        psy_questions.id, IFNULL(psy_questions.question_text, psy_questions.question_image) AS question_display, 
+        psy_questions.id, IFNULL(psy_questions.question_text, psy_questions.question_image) AS question_display,
         psy_test_factor.factor_name, psy_questions.status, psy_questions.is_demo AS isDemo, psy_questions.memory_main_id";
 
         $joins = [

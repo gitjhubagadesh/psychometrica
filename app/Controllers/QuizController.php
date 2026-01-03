@@ -83,7 +83,7 @@ class QuizController extends Controller {
             return $this->response->setJSON([
                         'status' => 'error',
                         'message' => 'Session expired. Please login again.',
-                        'redirect' => '/quiz-signin'
+                        'redirect' => '/test-signin'
             ]);
         }
 
