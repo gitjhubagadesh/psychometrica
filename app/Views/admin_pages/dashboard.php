@@ -42,7 +42,7 @@
                             </div>
                         </div>
                         <div class="panel-footer text-center">
-                            <a href="#!/manage-tests" class="text-muted">View Details <i class="fa fa-arrow-right"></i></a>
+                            <a href="#!/create-test" class="text-muted">View Details <i class="fa fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>
