@@ -90,6 +90,25 @@
     </div>
 
     <div class="panel panel-default">
+        <div class="panel-heading">
+            <div class="row">
+                <div class="col-sm-6">
+                    <label>Show
+                        <select ng-model="pagination.limit" ng-change="updateRowsPerPage()" class="form-control input-sm" style="width: 80px; display: inline-block;">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        entries
+                    </label>
+                </div>
+                <div class="col-sm-6 text-right">
+                    <input type="text" ng-model="searchText" class="form-control input-sm" placeholder="Search..." style="width: 200px; display: inline-block;">
+                </div>
+            </div>
+        </div>
         <div class="table-responsive">
             <table class="table table-bordered">
                 <thead class="table-dark">
@@ -109,8 +128,8 @@
                         <td>{{ test_factor.prefix}}</td>
                         <td class="align-middle">
                             <label class="checkbox-inline i-checks">
-                                <input type="checkbox" 
-                                       ng-model="test_factor.status" 
+                                <input type="checkbox"
+                                       ng-model="test_factor.status"
                                        ng-true-value="'1'"
                                        ng-false-value="'0'"
                                        ng-change="toggleStatus(test_factor)">
@@ -130,6 +149,23 @@
 
                 </tbody>
             </table>
+            <!-- Responsive Pagination -->
+            <div class="col-sm-12 text-right text-center-xs">
+                <ul class="pagination pagination-sm m-t-none m-b-none">
+                    <li ng-class="{ 'disabled': pagination.currentPage == 1 }">
+                        <a href ng-click="prevPage()"><i class="fa fa-chevron-left"></i></a>
+                    </li>
+
+                    <li ng-repeat="page in getPageNumbers()"
+                        ng-class="{ 'active': page === pagination.currentPage }">
+                        <a href ng-click="goToPage(page)">{{ page}}</a>
+                    </li>
+
+                    <li ng-class="{ 'disabled': pagination.currentPage >= pagination.totalPages }">
+                        <a href ng-click="nextPage()"><i class="fa fa-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>

@@ -1251,9 +1251,10 @@ app.controller('TestController', function ($scope, $http, $location) {
     $scope.loadTests();
 });
 
-app.controller('TestFactorController', function ($scope, $http, $location, $timeout) {
+app.controller('TestFactorController', function ($scope, $http, $location, $timeout, PaginationService) {
     $scope.test_factors = [];
     $scope.newTestFactor = {};
+    $scope.pagination = PaginationService.getPagination(); // Get shared pagination object
 
     $scope.resetForm = function () {
         $scope.newTestFactor = {}; // Reset the form by clearing newTest object
@@ -1296,10 +1297,16 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
     };
 
     $scope.loadTests = function () {
-        $http.get('/admin/getTestFactorList')
-                .then(function (response) {
-                    $scope.test_factors = response.data.test_factors;
-                });
+        $http.get('/admin/getTestFactorList', {
+            params: {
+                limit: $scope.pagination.limit,
+                offset: ($scope.pagination.currentPage - 1) * $scope.pagination.limit,
+                search: $scope.searchText
+            }
+        }).then(function (response) {
+            $scope.test_factors = response.data.test_factors;
+            PaginationService.setTotalPages(response.data.total);
+        });
     };
 
     $scope.toggleStatus = function (factor) {
@@ -1350,8 +1357,6 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
                                 icon: "success",
                                 backdrop: false // Disables the dark background overlay
                             });
-
-                            $scope.fetchData(); // Refresh user list
                         }, function (error) {
                             Swal.fire({
                                 title: "Error!",
@@ -1362,6 +1367,43 @@ app.controller('TestFactorController', function ($scope, $http, $location, $time
                         });
             }
         });
+    };
+
+    // Watch for changes in search and reset pagination
+    $scope.$watch('searchText', function (newVal, oldVal) {
+        if (newVal !== oldVal) {
+            $scope.pagination.currentPage = 1;
+            $scope.loadTests();
+        }
+    });
+
+    $scope.updateRowsPerPage = function () {
+        $scope.pagination.currentPage = 1; // Reset to first page
+        $scope.loadTests(); // Reload data with new limit
+    };
+
+    // Navigation Methods
+    $scope.nextPage = function () {
+        if ($scope.pagination.currentPage < $scope.pagination.totalPages) {
+            $scope.pagination.currentPage++;
+            $scope.loadTests();
+        }
+    };
+
+    $scope.prevPage = function () {
+        if ($scope.pagination.currentPage > 1) {
+            $scope.pagination.currentPage--;
+            $scope.loadTests();
+        }
+    };
+
+    $scope.goToPage = function (page) {
+        $scope.pagination.currentPage = page;
+        $scope.loadTests();
+    };
+
+    $scope.getPageNumbers = function () {
+        return PaginationService.getPageNumbers();
     };
 
     $scope.addTestFactor = function (factorId) {
