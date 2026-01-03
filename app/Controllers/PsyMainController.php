@@ -1408,6 +1408,11 @@ class PsyMainController extends BaseController {
         $limit = $this->request->getGet('limit') ?? 10;
         $offset = $this->request->getGet('offset') ?? 0;
         $search = $this->request->getGet('search') ?? '';
+        $status = $this->request->getGet('status') ?? '';
+        $testName = $this->request->getGet('test_name') ?? '';
+        $company = $this->request->getGet('company') ?? '';
+        $dateFrom = $this->request->getGet('date_from') ?? '';
+        $dateTo = $this->request->getGet('date_to') ?? '';
 
         $table = 'psy_users';
         $indexColumn = 'psy_users.id';
@@ -1415,17 +1420,17 @@ class PsyMainController extends BaseController {
 
         // Select required columns
         $columns = "
-    psy_users.*, 
-    psy_user_registration.email, 
-    psy_user_registration.company_name AS cName, 
-    (CONCAT_WS('', psy_user_registration.first_name, ' ', psy_user_registration.last_name)) AS uName, 
-    psy_companies.company_name, 
-    psy_user_type.section_name, 
-    psy_tests.test_name, 
-    psy_user_groups.group_code, 
+    psy_users.*,
+    psy_user_registration.email,
+    psy_user_registration.company_name AS cName,
+    (CONCAT_WS('', psy_user_registration.first_name, ' ', psy_user_registration.last_name)) AS uName,
+    psy_companies.company_name,
+    psy_user_type.section_name,
+    psy_tests.test_name,
+    psy_user_groups.group_code,
     (SELECT COUNT(DISTINCT q.id) FROM psy_user_answers ua JOIN psy_questions q ON q.id = ua.question_id WHERE ua.user_id = psy_users.id AND q.is_demo = 1) AS questionTaken,
 
-    (SELECT CONCAT('#', LPAD(HEX(0xAAAAAA | (CONV(LEFT(MD5(P1.group_id), 6), 16, 10) & 0x555555)), 6, '0')) 
+    (SELECT CONCAT('#', LPAD(HEX(0xAAAAAA | (CONV(LEFT(MD5(P1.group_id), 6), 16, 10) & 0x555555)), 6, '0'))
      FROM psy_users AS P1 WHERE P1.id = psy_users.id) AS color_code,
 
     (GetTotalQuestionsForUser(psy_users.id)) AS progress,
@@ -1441,22 +1446,44 @@ class PsyMainController extends BaseController {
             ['psy_user_groups', 'psy_user_groups.id = psy_users.group_id', 'left']
         ];
 
-        $whereCondition = "";
+        $whereConditions = [];
+
+        // Search filter
         if (!empty($search)) {
             $escapedSearch = $search;
-            $whereCondition = "(
-                psy_users.user_id LIKE '%$escapedSearch%' 
+            $whereConditions[] = "(
+                psy_users.user_id LIKE '%$escapedSearch%'
                 OR psy_users.username LIKE '%$escapedSearch%'
-                OR psy_user_registration.company_name LIKE '%$escapedSearch%'     
-                OR psy_user_registration.first_name LIKE '%$escapedSearch%' 
-                OR psy_user_registration.first_name LIKE '%$escapedSearch%'     
-                OR psy_user_registration.email LIKE '%$escapedSearch%' 
-                OR psy_companies.company_name LIKE '%$escapedSearch%' 
-                OR psy_user_type.section_name LIKE '%$escapedSearch%' 
-                OR psy_tests.test_name LIKE '%$escapedSearch%' 
+                OR psy_user_registration.company_name LIKE '%$escapedSearch%'
+                OR psy_user_registration.first_name LIKE '%$escapedSearch%'
+                OR psy_user_registration.last_name LIKE '%$escapedSearch%'
+                OR psy_user_registration.email LIKE '%$escapedSearch%'
+                OR psy_companies.company_name LIKE '%$escapedSearch%'
+                OR psy_user_type.section_name LIKE '%$escapedSearch%'
+                OR psy_tests.test_name LIKE '%$escapedSearch%'
                 OR psy_user_groups.group_code LIKE '%$escapedSearch%'
             )";
         }
+
+        // Test name filter
+        if (!empty($testName)) {
+            $whereConditions[] = "psy_tests.test_name = '$testName'";
+        }
+
+        // Company filter
+        if (!empty($company)) {
+            $whereConditions[] = "psy_user_registration.company_name = '$company'";
+        }
+
+        // Date range filter
+        if (!empty($dateFrom)) {
+            $whereConditions[] = "DATE(psy_user_registration.created_on) >= '$dateFrom'";
+        }
+        if (!empty($dateTo)) {
+            $whereConditions[] = "DATE(psy_user_registration.created_on) <= '$dateTo'";
+        }
+
+        $whereCondition = !empty($whereConditions) ? implode(' AND ', $whereConditions) : "";
 
         // Get total records count
         $totalRecords = $this->adminModel->getTotalRecords($table, $joins, $whereCondition);
@@ -1482,6 +1509,29 @@ class PsyMainController extends BaseController {
         return $this->response->setJSON([
                     'data' => $results,
                     'total' => $totalRecords
+        ]);
+    }
+
+    public function getReportFilterOptions() {
+        // Get unique test names
+        $tests = $this->db->query("
+            SELECT DISTINCT psy_tests.test_name
+            FROM psy_tests
+            WHERE psy_tests.test_name IS NOT NULL AND psy_tests.test_name != ''
+            ORDER BY psy_tests.test_name
+        ")->getResult();
+
+        // Get unique company names
+        $companies = $this->db->query("
+            SELECT DISTINCT psy_user_registration.company_name
+            FROM psy_user_registration
+            WHERE psy_user_registration.company_name IS NOT NULL AND psy_user_registration.company_name != ''
+            ORDER BY psy_user_registration.company_name
+        ")->getResult();
+
+        return $this->response->setJSON([
+            'tests' => array_column($tests, 'test_name'),
+            'companies' => array_column($companies, 'company_name')
         ]);
     }
 

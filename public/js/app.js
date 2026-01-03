@@ -86,39 +86,99 @@ app.config(function ($routeProvider) {
 
 app.controller('ReportController', function ($scope, $http, $routeParams, $location, PaginationService) {
     $scope.pagination = PaginationService.getPagination(); // Get shared pagination object
+    $scope.reportStats = {
+        total_users: 0,
+        completed: 0,
+        in_progress: 0,
+        not_started: 0
+    };
+    $scope.filters = {
+        status: '',
+        test_name: '',
+        company: '',
+        dateFrom: '',
+        dateTo: ''
+    };
+    $scope.availableTests = [];
+    $scope.availableCompanies = [];
+    $scope.selectAll = false;
 
     $scope.$on('$routeChangeSuccess', function () {
         $scope.fetchData();
+        $scope.loadFilterOptions();
     });
 
     $scope.fetchData = function () {
         $http.get('/admin/getReportUsersList', {
             params: {
-                limit: $scope.pagination.limit, // Use the selected limit
+                limit: $scope.pagination.limit,
                 offset: ($scope.pagination.currentPage - 1) * $scope.pagination.limit,
-                search: $scope.searchText // Pass search query to backend
+                search: $scope.searchText,
+                status: $scope.filters.status,
+                test_name: $scope.filters.test_name,
+                company: $scope.filters.company,
+                date_from: $scope.filters.dateFrom,
+                date_to: $scope.filters.dateTo
             }
         }).then(function (response) {
             $scope.users = response.data.data;
             $scope.users.forEach(user => {
-                user.status = parseInt(user.status, 10); // Convert to integer
+                user.status = parseInt(user.status, 10);
+                user.selected = false;
             });
-            PaginationService.setTotalPages(response.data.total); // Update total pages
+            PaginationService.setTotalPages(response.data.total);
+            $scope.calculateStats();
         }, function (error) {
             console.error("Error fetching data", error);
         });
     };
 
+    $scope.loadFilterOptions = function () {
+        $http.get('/admin/getReportFilterOptions').then(function (response) {
+            if (response.data) {
+                $scope.availableTests = response.data.tests || [];
+                $scope.availableCompanies = response.data.companies || [];
+            }
+        });
+    };
+
+    $scope.calculateStats = function () {
+        if (!$scope.users) return;
+
+        $scope.reportStats.total_users = $scope.users.length;
+        $scope.reportStats.completed = $scope.users.filter(u => u.questionTaken > 0 && u.questionTaken == u.progress).length;
+        $scope.reportStats.in_progress = $scope.users.filter(u => u.questionTaken > 0 && u.questionTaken < u.progress).length;
+        $scope.reportStats.not_started = $scope.users.filter(u => u.questionTaken == 0).length;
+    };
+
+    $scope.applyFilters = function () {
+        $scope.pagination.currentPage = 1;
+        $scope.fetchData();
+    };
+
+    $scope.clearFilters = function () {
+        $scope.filters = {
+            status: '',
+            test_name: '',
+            company: '',
+            dateFrom: '',
+            dateTo: ''
+        };
+        $scope.searchText = '';
+        $scope.applyFilters();
+    };
+
     // Watch for changes in search and reset pagination
     $scope.$watch('searchText', function (newVal, oldVal) {
         if (newVal !== oldVal) {
-            $scope.fetchData(true); // Reset pagination when search changes
+            $scope.pagination.currentPage = 1;
+            $scope.fetchData();
         }
     });
 
     $scope.updateRowsPerPage = function () {
-        $scope.pagination.currentPage = 1; // Reset to first page
-        $scope.fetchData(); // Reload data with new limit
+        $scope.pagination.currentPage = 1;
+        $scope.fetchData();
     };
 
     // Navigation Methods
@@ -245,7 +305,6 @@ app.controller('ReportController', function ($scope, $http, $routeParams, $locat
 
     $scope.downloadMSPPDFReport = function (userId, reportId) {
         $scope.isDownloading = true;
-        // Use an invisible iframe to track when download starts
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';
         if (reportId == 1 || reportId == 2) {
@@ -269,17 +328,129 @@ app.controller('ReportController', function ($scope, $http, $routeParams, $locat
 
         document.body.appendChild(iframe);
 
-        // Fallback: auto-reset after X seconds
         setTimeout(() => {
             $scope.$apply(() => {
                 $scope.isDownloading = false;
             });
-        }, 10000); // adjust based on expected time
+        }, 10000);
     };
 
+    // Helper functions
+    $scope.getProgressPercent = function (taken, total) {
+        if (total === 0) return 0;
+        return Math.round((taken / total) * 100);
+    };
 
+    $scope.getStatus = function (taken, total) {
+        if (taken === 0) return 'Not Started';
+        if (taken < total) return 'In Progress';
+        return 'Completed';
+    };
 
+    $scope.toggleSelectAll = function () {
+        if ($scope.users) {
+            $scope.users.forEach(user => {
+                user.selected = $scope.selectAll;
+            });
+        }
+    };
 
+    $scope.viewUserDetails = function (user) {
+        Swal.fire({
+            title: '<strong>User Details</strong>',
+            html: `
+                <div style="text-align: left;">
+                    <p><strong>Name:</strong> ${user.uName}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>User ID:</strong> ${user.user_id}</p>
+                    <p><strong>Company:</strong> ${user.cName}</p>
+                    <p><strong>Test:</strong> ${user.test_name}</p>
+                    <p><strong>Progress:</strong> ${user.questionTaken}/${user.progress} (${$scope.getProgressPercent(user.questionTaken, user.progress)}%)</p>
+                    <p><strong>Status:</strong> ${$scope.getStatus(user.questionTaken, user.progress)}</p>
+                    <p><strong>Report Date:</strong> ${new Date(user.reportingDate).toLocaleDateString()}</p>
+                </div>
+            `,
+            icon: 'info',
+            showCloseButton: true,
+            confirmButtonText: 'Close',
+            backdrop: false
+        });
+    };
+
+    $scope.bulkDownloadPDF = function () {
+        const selectedUsers = $scope.users.filter(u => u.selected && u.questionTaken > 0);
+        if (selectedUsers.length === 0) {
+            Swal.fire({
+                title: 'No Users Selected',
+                text: 'Please select users with completed tests to download reports',
+                icon: 'warning',
+                backdrop: false
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Bulk Download',
+            text: `Download PDF reports for ${selectedUsers.length} selected users?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Download',
+            cancelButtonText: 'Cancel',
+            backdrop: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                selectedUsers.forEach((user, index) => {
+                    setTimeout(() => {
+                        $scope.downloadMSPPDFReport(user.id, user.testReportId);
+                    }, index * 1000);
+                });
+            }
+        });
+    };
+
+    $scope.bulkDownloadExcel = function () {
+        const selectedUsers = $scope.users.filter(u => u.selected && u.questionTaken > 0);
+        if (selectedUsers.length === 0) {
+            Swal.fire({
+                title: 'No Users Selected',
+                text: 'Please select users with completed tests to download reports',
+                icon: 'warning',
+                backdrop: false
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Bulk Download',
+            text: `Download Excel reports for ${selectedUsers.length} selected users?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Download',
+            cancelButtonText: 'Cancel',
+            backdrop: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                selectedUsers.forEach((user, index) => {
+                    setTimeout(() => {
+                        $scope.downloadExcelReport(user.id, user.testReportId);
+                    }, index * 1000);
+                });
+            }
+        });
+    };
+
+    $scope.exportAllReports = function () {
+        Swal.fire({
+            title: 'Export All Reports',
+            text: 'This feature will be available soon',
+            icon: 'info',
+            backdrop: false
+        });
+    };
+
+    // Initialize
+    $scope.fetchData();
+    $scope.loadFilterOptions();
 });
 app.controller('CreateMasterTestController', function ($scope, $http, $routeParams, $location, PaginationService, $timeout) {
     $scope.test_names = {};
