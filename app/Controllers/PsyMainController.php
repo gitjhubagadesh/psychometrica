@@ -46,9 +46,12 @@ class PsyMainController extends BaseController {
             'registered_users' => 0,
             'companies_count' => 0,
             'attempts_data' => 0,
+            'total_test_factors' => 0,
+            'active_today' => 0,
+            'completion_rate' => 0,
         ];
 
-// Map the results to keys
+        // Map the results to keys
         foreach ($countData as $row) {
             switch ($row->source) {
                 case 'test_count':
@@ -66,11 +69,31 @@ class PsyMainController extends BaseController {
                 case 'users_attempt_count':
                     $response['data']['attempts_data'] = $row->total;
                     break;
+                case 'total_test_factors':
+                    $response['data']['total_test_factors'] = $row->total;
+                    break;
+                case 'active_today':
+                    $response['data']['active_today'] = $row->total;
+                    break;
                 // Add more cases if needed
             }
         }
 
+        // Calculate completion rate
+        $completionData = $this->adminModel->getCompletionRate();
+        if ($completionData && isset($completionData['completed']) && isset($completionData['total']) && $completionData['total'] > 0) {
+            $response['data']['completion_rate'] = round(($completionData['completed'] / $completionData['total']) * 100, 1);
+        }
+
         return $this->response->setJSON($response);
+    }
+
+    public function getRecentCompletions() {
+        $recentCompletions = $this->adminModel->getRecentCompletions(10);
+
+        return $this->response->setJSON([
+            'data' => $recentCompletions
+        ]);
     }
 
     public function getAttemptStats() {

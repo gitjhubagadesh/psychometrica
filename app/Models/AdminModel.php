@@ -113,11 +113,54 @@ class AdminModel extends Model {
         UNION
         SELECT COUNT(*) AS total, 'companies_count' AS source FROM psy_companies WHERE status = 1
         UNION
-        SELECT COUNT(*) AS total, 'users_attempt_count' AS source FROM psy_quiz_attempts WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);
+        SELECT COUNT(*) AS total, 'users_attempt_count' AS source FROM psy_quiz_attempts WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        UNION
+        SELECT COUNT(*) AS total, 'total_test_factors' AS source FROM psy_test_factor WHERE status = 1
+        UNION
+        SELECT COUNT(DISTINCT user_id) AS total, 'active_today' AS source FROM psy_quiz_attempts WHERE DATE(started_at) = CURDATE();
     ";
 
         $query = $this->db->query($sql);
         return $query->getResult();
+    }
+
+    public function getCompletionRate() {
+        $sql = "
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN ended_at IS NOT NULL THEN 1 ELSE 0 END) AS completed
+        FROM psy_quiz_attempts
+        WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+    ";
+
+        $result = $this->db->query($sql)->getRow();
+        return [
+            'total' => $result->total ?? 0,
+            'completed' => $result->completed ?? 0
+        ];
+    }
+
+    public function getRecentCompletions($limit = 10) {
+        $sql = "
+        SELECT
+            u.name,
+            u.email,
+            t.test_name,
+            c.company_name,
+            qa.started_at,
+            qa.ended_at,
+            TIMESTAMPDIFF(MINUTE, qa.started_at, qa.ended_at) AS duration_minutes,
+            qa.ended_at AS test_finish_time
+        FROM psy_quiz_attempts qa
+        INNER JOIN psy_users u ON qa.user_id = u.id
+        INNER JOIN psy_tests t ON qa.test_id = t.id
+        LEFT JOIN psy_companies c ON u.company_id = c.id
+        WHERE qa.ended_at IS NOT NULL
+        ORDER BY qa.ended_at DESC
+        LIMIT ?
+    ";
+
+        return $this->db->query($sql, [$limit])->getResult();
     }
 
     public function getAttemptStats() {

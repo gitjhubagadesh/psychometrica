@@ -1505,9 +1505,22 @@ app.controller('DashboardController', [
         $scope.total_tests = 0;
         $scope.total_questions = 0;
         $scope.total_users = 0;
+        $scope.companies_count = 0;
+        $scope.total_test_factors = 0;
+        $scope.active_today = 0;
+        $scope.completion_rate = 0;
         $scope.errorMessage = null;
         $scope.loading = false;
         $scope.userStatsChart = null;
+        $scope.recent_completions = [];
+        $scope.lastUpdated = new Date();
+
+        $scope.refreshDashboard = function () {
+            $scope.getDashboardDetails();
+            $scope.getDashboardUsersStats();
+            $scope.getRecentCompletions();
+            $scope.lastUpdated = new Date();
+        };
 
         $scope.getDashboardDetails = function () {
             $scope.loading = true;
@@ -1519,6 +1532,10 @@ app.controller('DashboardController', [
                             $scope.total_users = response.data.data.total_users || 0;
                             $scope.registered_users = response.data.data.registered_users || 0;
                             $scope.attempts_data = response.data.data.attempts_data || 0;
+                            $scope.companies_count = response.data.data.companies_count || 0;
+                            $scope.total_test_factors = response.data.data.total_test_factors || 0;
+                            $scope.active_today = response.data.data.active_today || 0;
+                            $scope.completion_rate = response.data.data.completion_rate || 0;
                         }
                     })
                     .catch(function (error) {
@@ -1527,6 +1544,18 @@ app.controller('DashboardController', [
                     })
                     .finally(function () {
                         $scope.loading = false;
+                    });
+        };
+
+        $scope.getRecentCompletions = function () {
+            $http.get("getRecentCompletions")
+                    .then(function (response) {
+                        if (response.data && response.data.data) {
+                            $scope.recent_completions = response.data.data;
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Failed to load recent completions:", error);
                     });
         };
 
@@ -1610,14 +1639,16 @@ app.controller('DashboardController', [
 
                 $scope.getDashboardDetails();
                 $scope.getDashboardUsersStats();
+                $scope.getRecentCompletions();
 
                 statsInterval = setInterval(function () {
                     $scope.getDashboardUsersStats();
-                }, 10000);
+                    $scope.getRecentCompletions();
+                }, 30000); // Refresh every 30 seconds
 
                 detailsInterval = setInterval(function () {
                     $scope.getDashboardDetails();
-                }, 300000);
+                }, 300000); // Refresh every 5 minutes
             }
         }
 
