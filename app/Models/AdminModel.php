@@ -113,11 +113,81 @@ class AdminModel extends Model {
         UNION
         SELECT COUNT(*) AS total, 'companies_count' AS source FROM psy_companies WHERE status = 1
         UNION
-        SELECT COUNT(*) AS total, 'users_attempt_count' AS source FROM psy_quiz_attempts WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);
+        SELECT COUNT(*) AS total, 'users_attempt_count' AS source FROM psy_quiz_attempts WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        UNION
+        SELECT COUNT(*) AS total, 'total_test_factors' AS source FROM psy_test_factor WHERE status = 1
+        UNION
+        SELECT COUNT(DISTINCT user_id) AS total, 'active_today' AS source FROM psy_quiz_attempts WHERE DATE(started_at) = CURDATE();
     ";
 
         $query = $this->db->query($sql);
         return $query->getResult();
+    }
+
+    public function getCompletionRate() {
+        $sql = "
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN ended_at IS NOT NULL THEN 1 ELSE 0 END) AS completed
+        FROM psy_quiz_attempts
+        WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+    ";
+
+        $result = $this->db->query($sql)->getRow();
+        return [
+            'total' => $result->total ?? 0,
+            'completed' => $result->completed ?? 0
+        ];
+    }
+
+    public function getRecentCompletions($limit = 10) {
+        $sql = "
+        SELECT
+            u.name,
+            u.email,
+            t.test_name,
+            c.company_name,
+            qa.started_at,
+            qa.ended_at,
+            TIMESTAMPDIFF(MINUTE, qa.started_at, qa.ended_at) AS duration_minutes,
+            qa.ended_at AS test_finish_time
+        FROM psy_quiz_attempts qa
+        INNER JOIN psy_users u ON qa.user_id = u.id
+        INNER JOIN psy_tests t ON qa.test_id = t.id
+        LEFT JOIN psy_companies c ON u.company_id = c.id
+        WHERE qa.ended_at IS NOT NULL
+        ORDER BY qa.ended_at DESC
+        LIMIT ?
+    ";
+
+        return $this->db->query($sql, [$limit])->getResult();
+    }
+
+    public function getTestCompletionBreakdown() {
+        $sql = "
+        SELECT
+            t.id AS test_id,
+            t.test_name,
+            tn.test_name AS test_category,
+            COUNT(*) AS total_attempts,
+            SUM(CASE WHEN qa.ended_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_attempts,
+            SUM(CASE WHEN qa.ended_at IS NULL THEN 1 ELSE 0 END) AS incomplete_attempts,
+            ROUND((SUM(CASE WHEN qa.ended_at IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS completion_rate,
+            AVG(CASE
+                WHEN qa.ended_at IS NOT NULL
+                THEN TIMESTAMPDIFF(MINUTE, qa.started_at, qa.ended_at)
+                ELSE NULL
+            END) AS avg_duration_minutes,
+            MAX(qa.ended_at) AS last_completed_at
+        FROM psy_quiz_attempts qa
+        INNER JOIN psy_tests t ON qa.test_id = t.id
+        LEFT JOIN psy_test_name tn ON t.test_name_id = tn.id
+        WHERE qa.started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        GROUP BY t.id, t.test_name, tn.test_name
+        ORDER BY completion_rate ASC, total_attempts DESC
+    ";
+
+        return $this->db->query($sql)->getResult();
     }
 
     public function getAttemptStats() {
