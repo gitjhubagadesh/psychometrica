@@ -96,6 +96,14 @@ class PsyMainController extends BaseController {
         ]);
     }
 
+    public function getTestCompletionBreakdown() {
+        $breakdown = $this->adminModel->getTestCompletionBreakdown();
+
+        return $this->response->setJSON([
+            'data' => $breakdown
+        ]);
+    }
+
     public function getAttemptStats() {
         // Get stats from your model
         $stats = $this->adminModel->getAttemptStats();

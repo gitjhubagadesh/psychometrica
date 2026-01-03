@@ -163,6 +163,33 @@ class AdminModel extends Model {
         return $this->db->query($sql, [$limit])->getResult();
     }
 
+    public function getTestCompletionBreakdown() {
+        $sql = "
+        SELECT
+            t.id AS test_id,
+            t.test_name,
+            tn.test_name AS test_category,
+            COUNT(*) AS total_attempts,
+            SUM(CASE WHEN qa.ended_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_attempts,
+            SUM(CASE WHEN qa.ended_at IS NULL THEN 1 ELSE 0 END) AS incomplete_attempts,
+            ROUND((SUM(CASE WHEN qa.ended_at IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS completion_rate,
+            AVG(CASE
+                WHEN qa.ended_at IS NOT NULL
+                THEN TIMESTAMPDIFF(MINUTE, qa.started_at, qa.ended_at)
+                ELSE NULL
+            END) AS avg_duration_minutes,
+            MAX(qa.ended_at) AS last_completed_at
+        FROM psy_quiz_attempts qa
+        INNER JOIN psy_tests t ON qa.test_id = t.id
+        LEFT JOIN psy_test_name tn ON t.test_name_id = tn.id
+        WHERE qa.started_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        GROUP BY t.id, t.test_name, tn.test_name
+        ORDER BY completion_rate ASC, total_attempts DESC
+    ";
+
+        return $this->db->query($sql)->getResult();
+    }
+
     public function getAttemptStats() {
         $sql = "
         SELECT 'active_users' AS label, COUNT(*) AS total

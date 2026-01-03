@@ -177,6 +177,107 @@
                 </div>
             </div>
 
+            <!-- Test Completion Rate Breakdown -->
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <i class="fa fa-pie-chart"></i> Test Completion Rate Breakdown (Last 30 Days)
+                            <span class="pull-right text-muted">
+                                <small>Sorted by completion rate (lowest first)</small>
+                            </span>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 5%">#</th>
+                                            <th style="width: 25%">Test Name</th>
+                                            <th style="width: 15%">Category</th>
+                                            <th style="width: 10%" class="text-center">Total Attempts</th>
+                                            <th style="width: 10%" class="text-center">Completed</th>
+                                            <th style="width: 10%" class="text-center">Incomplete</th>
+                                            <th style="width: 10%" class="text-center">Completion Rate</th>
+                                            <th style="width: 10%" class="text-center">Avg Duration</th>
+                                            <th style="width: 5%" class="text-center">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody ng-if="test_breakdown.length > 0">
+                                        <tr ng-repeat="test in test_breakdown">
+                                            <td>{{$index + 1}}</td>
+                                            <td>
+                                                <strong>{{test.test_name}}</strong>
+                                            </td>
+                                            <td>
+                                                <span class="text-muted">{{test.test_category || 'N/A'}}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-info">{{test.total_attempts}}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-success">{{test.completed_attempts}}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-warning">{{test.incomplete_attempts}}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="progress" style="margin-bottom: 0; height: 20px;">
+                                                    <div class="progress-bar"
+                                                         ng-class="{
+                                                             'progress-bar-success': test.completion_rate >= 80,
+                                                             'progress-bar-warning': test.completion_rate >= 50 && test.completion_rate < 80,
+                                                             'progress-bar-danger': test.completion_rate < 50
+                                                         }"
+                                                         role="progressbar"
+                                                         ng-style="{width: test.completion_rate + '%'}">
+                                                        <strong>{{test.completion_rate}}%</strong>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span ng-if="test.avg_duration_minutes">
+                                                    {{test.avg_duration_minutes | number:1}} min
+                                                </span>
+                                                <span ng-if="!test.avg_duration_minutes" class="text-muted">-</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <i class="fa fa-2x"
+                                                   ng-class="{
+                                                       'fa-check-circle text-success': test.completion_rate >= 80,
+                                                       'fa-exclamation-circle text-warning': test.completion_rate >= 50 && test.completion_rate < 80,
+                                                       'fa-times-circle text-danger': test.completion_rate < 50
+                                                   }"></i>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody ng-if="test_breakdown.length === 0">
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted">
+                                                <i class="fa fa-info-circle"></i> No test attempts in the last 30 days
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="panel-footer" ng-if="test_breakdown.length > 0">
+                                <div class="row">
+                                    <div class="col-sm-4">
+                                        <i class="fa fa-check-circle text-success"></i> <strong>Good (≥80%)</strong> - Test is performing well
+                                    </div>
+                                    <div class="col-sm-4">
+                                        <i class="fa fa-exclamation-circle text-warning"></i> <strong>Fair (50-79%)</strong> - Needs attention
+                                    </div>
+                                    <div class="col-sm-4">
+                                        <i class="fa fa-times-circle text-danger"></i> <strong>Poor (<50%)</strong> - Requires immediate review
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Recent Activity Table -->
             <div class="row">
                 <div class="col-lg-12">

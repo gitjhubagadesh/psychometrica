@@ -1513,12 +1513,14 @@ app.controller('DashboardController', [
         $scope.loading = false;
         $scope.userStatsChart = null;
         $scope.recent_completions = [];
+        $scope.test_breakdown = [];
         $scope.lastUpdated = new Date();
 
         $scope.refreshDashboard = function () {
             $scope.getDashboardDetails();
             $scope.getDashboardUsersStats();
             $scope.getRecentCompletions();
+            $scope.getTestBreakdown();
             $scope.lastUpdated = new Date();
         };
 
@@ -1556,6 +1558,18 @@ app.controller('DashboardController', [
                     })
                     .catch(function (error) {
                         console.error("Failed to load recent completions:", error);
+                    });
+        };
+
+        $scope.getTestBreakdown = function () {
+            $http.get("getTestCompletionBreakdown")
+                    .then(function (response) {
+                        if (response.data && response.data.data) {
+                            $scope.test_breakdown = response.data.data;
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Failed to load test breakdown:", error);
                     });
         };
 
@@ -1640,10 +1654,12 @@ app.controller('DashboardController', [
                 $scope.getDashboardDetails();
                 $scope.getDashboardUsersStats();
                 $scope.getRecentCompletions();
+                $scope.getTestBreakdown();
 
                 statsInterval = setInterval(function () {
                     $scope.getDashboardUsersStats();
                     $scope.getRecentCompletions();
+                    $scope.getTestBreakdown();
                 }, 30000); // Refresh every 30 seconds
 
                 detailsInterval = setInterval(function () {

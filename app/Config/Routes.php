@@ -16,7 +16,8 @@ $routes->get('logout', 'Signin::logout'); // Logout route
 $routes->get('admin', 'PsyMainController::index');
 $routes->get('dashboardData', 'PsyMainController::dashboardData');
 $routes->get('getAttemptStats', 'PsyMainController::getAttemptStats');
-$routes->get('getRecentCompletions', 'PsyMainController::getRecentCompletions'); 
+$routes->get('getRecentCompletions', 'PsyMainController::getRecentCompletions');
+$routes->get('getTestCompletionBreakdown', 'PsyMainController::getTestCompletionBreakdown'); 
 $routes->get('admin/adminUser', 'PsyMainController::adminUser'); 
 $routes->get('admin/getAdminList', 'PsyMainController::getAdminList');
 $routes->get('admin/manageAdminUser/(:num)', 'PsyMainController::manageAdminUser/$1');
