@@ -820,14 +820,14 @@ class AdminModel extends Model {
         if ($is_master_test) {
             // MASTER TEST QUERY
             $sql = "
-            SELECT 
+            SELECT
                 f.id AS factor_id,
                 f.factor_name,
                 COUNT(DISTINCT q.id) AS question_count,
                 COALESCE(SUM(qo.option_mark), 0) AS total_score,
-                getBandAndPercentileByUser(COALESCE(SUM(qo.option_mark), 0), f.id, " . $user_id . ") AS pdf_score
+                '' AS pdf_score
             FROM (
-                SELECT DISTINCT 
+                SELECT DISTINCT
                     JSON_UNQUOTE(JSON_EXTRACT(pt.factor_ids, CONCAT('$[', n.n, ']'))) AS factor_id
                 FROM psy_master_tests pmt
                 JOIN ($numberGenerator) AS idx ON idx.n < JSON_LENGTH(pmt.test_ids)
@@ -846,14 +846,14 @@ class AdminModel extends Model {
         } else {
             // NORMAL TEST QUERY
             $sql = "
-            SELECT 
+            SELECT
                 f.id AS factor_id,
                 f.factor_name,
                 COUNT(DISTINCT q.id) AS question_count,
                 COALESCE(SUM(qo.option_mark), 0) AS total_score,
-                getBandAndPercentileByUser(COALESCE(SUM(qo.option_mark), 0), f.id, " . $user_id . ") AS pdf_score
+                '' AS pdf_score
             FROM (
-                SELECT DISTINCT 
+                SELECT DISTINCT
                     JSON_UNQUOTE(JSON_EXTRACT(pt.factor_ids, CONCAT('$[', n.n, ']'))) AS factor_id
                 FROM psy_tests pt
                 JOIN ($numberGenerator) AS n ON n.n < JSON_LENGTH(pt.factor_ids)

@@ -1488,23 +1488,60 @@ class PsyMainController extends BaseController {
         // Get total records count
         $totalRecords = $this->adminModel->getTotalRecords($table, $joins, $whereCondition);
 
+        // For status filter, we need to fetch all data and filter in PHP
+        // because status depends on calculated columns (questionTaken and progress)
+        $fetchLimit = $limit;
+        $fetchOffset = $offset;
+
+        if (!empty($status)) {
+            // Fetch all records when status filter is applied
+            $fetchLimit = $totalRecords;
+            $fetchOffset = 0;
+        }
+
         // Fetch filtered data
         $results = $this->adminModel->ajax_datatable_basic(
                 $columns,
-                $search, // ✅ If this is not needed, remove it
+                $search,
                 "",
                 $indexColumn,
                 $table,
                 $joins,
                 "",
                 $orderBy,
-                $whereCondition, // ✅ Ensure this is a string, not an array
-                $limit,
-                $offset
+                $whereCondition,
+                $fetchLimit,
+                $fetchOffset
         );
 
+        // Apply status filter if specified
+        if (!empty($status)) {
+            $filteredResults = array_filter($results, function($user) use ($status) {
+                $questionTaken = (int)$user['questionTaken'];
+                $progress = (int)$user['progress'];
+
+                switch ($status) {
+                    case 'completed':
+                        return $questionTaken > 0 && $questionTaken == $progress;
+                    case 'in_progress':
+                        return $questionTaken > 0 && $questionTaken < $progress;
+                    case 'not_started':
+                        return $questionTaken == 0;
+                    default:
+                        return true;
+                }
+            });
+
+            // Reindex array and update total count
+            $filteredResults = array_values($filteredResults);
+            $totalRecords = count($filteredResults);
+
+            // Apply pagination to filtered results
+            $results = array_slice($filteredResults, $offset, $limit);
+        }
+
         // Debugging logs
-        log_message('debug', "Pagination Request: Limit=$limit, Offset=$offset, Total=$totalRecords");
+        log_message('debug', "Pagination Request: Limit=$limit, Offset=$offset, Total=$totalRecords, Status=$status");
 
         return $this->response->setJSON([
                     'data' => $results,
@@ -1513,26 +1550,35 @@ class PsyMainController extends BaseController {
     }
 
     public function getReportFilterOptions() {
-        // Get unique test names
-        $tests = $this->db->query("
-            SELECT DISTINCT psy_tests.test_name
-            FROM psy_tests
-            WHERE psy_tests.test_name IS NOT NULL AND psy_tests.test_name != ''
-            ORDER BY psy_tests.test_name
-        ")->getResult();
+        try {
+            // Get unique test names
+            $tests = $this->db->query("
+                SELECT DISTINCT psy_tests.test_name
+                FROM psy_tests
+                WHERE psy_tests.test_name IS NOT NULL AND psy_tests.test_name != ''
+                ORDER BY psy_tests.test_name
+            ")->getResultArray();
 
-        // Get unique company names
-        $companies = $this->db->query("
-            SELECT DISTINCT psy_user_registration.company_name
-            FROM psy_user_registration
-            WHERE psy_user_registration.company_name IS NOT NULL AND psy_user_registration.company_name != ''
-            ORDER BY psy_user_registration.company_name
-        ")->getResult();
+            // Get unique company names
+            $companies = $this->db->query("
+                SELECT DISTINCT psy_user_registration.company_name
+                FROM psy_user_registration
+                WHERE psy_user_registration.company_name IS NOT NULL AND psy_user_registration.company_name != ''
+                ORDER BY psy_user_registration.company_name
+            ")->getResultArray();
 
-        return $this->response->setJSON([
-            'tests' => array_column($tests, 'test_name'),
-            'companies' => array_column($companies, 'company_name')
-        ]);
+            return $this->response->setJSON([
+                'tests' => array_column($tests, 'test_name'),
+                'companies' => array_column($companies, 'company_name')
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to get filter options: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'tests' => [],
+                'companies' => [],
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public function mainReports() {

@@ -102,6 +102,18 @@ class ReportController extends BaseController {
             }
         }
 
+        // Provide default if authenticity factor not found
+        if ($authenticityFactor === null) {
+            $authenticityFactor = [
+                'factor_id' => 0,
+                'factor_name' => 'Authenticity Meter MSP',
+                'question_count' => 0,
+                'total_score' => 3,
+                'pdf_score' => '',
+                'score_level' => 'Moderate'
+            ];
+        }
+
         // Render the HTML content from the view
         $html = view('admin_pages/pdf_reports/mspPdfReport', [
             'user' => $userData,
