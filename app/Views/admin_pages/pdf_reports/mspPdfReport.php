@@ -524,7 +524,13 @@ $mappedResults = [];
                 <!-- Authenticity Meter -->
                 <h3 style="color:#2b6cb0; padding-top: 50px;">Authenticity Meter</h3>
                 <?php
-                $scorePosition = min(6, max(0, round($authenticityFactorList['total_score'])));
+                $totalScore = $authenticityFactorList['total_score'] ?? null;
+
+                if ($totalScore === null) {
+                    $scorePosition = 0; // safe default
+                } else {
+                    $scorePosition = min(6, max(0, round($totalScore)));
+                }
                 $colors = ['#F5F8FD', '#F5F8FD', '#D2E0F2', '#D2E0F2', '#B5D0F3', '#B5D0F3', '#B5D0F3'];
                 $authenticityMeterTexts = [
                     5 => "$user->uName has a high score on the Authenticity Meter. This indicates that " . ($genderKey === 'male' ? 'he' : 'she') . " has responded to the test items spontaneously and honestly. Thus, the test scores can be taken as a valid indicator of " . ($genderKey === 'male' ? 'his' : 'her') . " managerial skills.",
@@ -811,10 +817,10 @@ $mappedResults = [];
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
-                <div class="section-divider"></div><br>
+                    <div class="section-divider"></div><br>
 
                 <?php } ?>
-                
+
             </div>
         </div>
         <div style="page-break-before: avoid; page-break-inside: avoid;" keep-together="true">
