@@ -110,9 +110,10 @@ $routes->post('admin/saveMasterTest', 'PsyMainController::saveMasterTest');
 $routes->post('admin/deleteMasterTest', 'PsyMainController::deleteMasterTest');
 
 //Report
-$routes->get('report', 'ReportController::index'); 
+$routes->get('report', 'ReportController::index');
 $routes->get('admin/mainReports', 'PsyMainController::mainReports');
 $routes->get('admin/getReportUsersList', 'PsyMainController::getReportUsersList');
+$routes->get('admin/getReportFilterOptions', 'PsyMainController::getReportFilterOptions');
 $routes->get('admin/downloadExcelReport', 'PsyMainController::downloadExcelReport');
 $routes->get('report/downloadMSPExcelReport', 'ReportController::downloadMSPExcelReport');
 $routes->get('report/downloadMSPPDFReport', 'ReportController::downloadMSPPDFReport');
