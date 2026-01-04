@@ -1567,7 +1567,7 @@ class PsyMainController extends BaseController {
             // Get unique company names
             $companies = $this->db->query(
                             "SELECT DISTINCT company_name
-                 FROM psy_user_registration
+                 FROM psy_companies
                  WHERE company_name IS NOT NULL
                    AND company_name != ''
                  ORDER BY company_name"
