@@ -102,18 +102,6 @@ class ReportController extends BaseController {
             }
         }
 
-        // Provide default if authenticity factor not found
-        if ($authenticityFactor === null) {
-            $authenticityFactor = [
-                'factor_id' => 0,
-                'factor_name' => 'Authenticity Meter MSP',
-                'question_count' => 0,
-                'total_score' => 3,
-                'pdf_score' => '',
-                'score_level' => 'Moderate'
-            ];
-        }
-
         // Render the HTML content from the view
         $html = view('admin_pages/pdf_reports/mspPdfReport', [
             'user' => $userData,
@@ -468,7 +456,7 @@ class ReportController extends BaseController {
         $sheet->getStyle("A" . ($row - count($reportData['factors']) - 1) . ":E" . ($row - 1))
                 ->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
     }
-    
+
     private function generateMSPReliabilityScoreSheet($sheet, $reportData, $answersMap, $questionsByFactor) {
         $sheet->setTitle('Test Reliability Score');
         $this->setupBasicSheetStructure($sheet, $reportData['testName']->test_name);
@@ -1297,7 +1285,6 @@ class ReportController extends BaseController {
             $name = trim($factor['factor_name']);
             $factorList[] = $factor;
         }
-        print_r($factorList);exit;
         $headerImagePath = FCPATH . 'img/pdf_images/header.png';
         $footerImagePath = FCPATH . 'img/pdf_images/footer.png';
 
