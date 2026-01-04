@@ -297,14 +297,6 @@
         animation: spin 0.75s linear infinite;
     }
 
-    .question-image {
-        object-fit: contain; /* keep aspect ratio and fit inside box */
-        border: 0px solid #ddd;
-        padding: 5px;
-        background: white;
-    }
-
-
     @keyframes spin {
         to {
             transform: rotate(360deg);
@@ -345,19 +337,15 @@
         }
     }
     .training-banner {
-        color: green;
+        background-color: #fff3cd;
+        color: #856404;
         padding: 10px;
         margin-bottom: 15px;
+        border: 1px solid #ffeeba;
         border-radius: 5px;
         font-weight: bold;
-        text-align: right;
     }
-    .factor-name {
-        font-size: 14px;
-        font-weight: normal; /* optional */
-        color: block;
-    }
-
+ 
 </style>
 <div class="container-fluid p-3" >
     <div class="row align-items-center">
@@ -376,7 +364,7 @@
                     <img src="./assets/images/clock/clock.png" alt="Clock Icon" style="max-width: 24px;">
                 </div>
                 <div class="count_title px-2">
-                    <h4 class="text-white pe-3 pe-md-5">Test</h4>
+                    <h4 class="text-white pe-3 pe-md-5">Quiz</h4>
                     <span class="text-white">Time start</span>
                 </div>
                 <div class="count_number p-2 d-flex justify-content-center align-items-center bg-white rounded-pill countdown_timer"
@@ -389,7 +377,9 @@
             </div>
         </div>
 
-
+        <div ng-if="getCurrentQuestion()?.is_demo == '1'" class="training-banner">
+            🛈 Training Mode – This question is for practice only
+        </div>
 
         <!-- Welcome + Logout -->
         <div class="col-12 col-md-4 text-end text-md-end"> <?php if (session()->get('quiz_name')): ?> <div class="d-flex justify-content-end align-items-center gap-3">
@@ -408,10 +398,9 @@
         <div class="multisteps_form_panel" style="display: block;">
             <!-- Step Header -->
             <div class="step_content d-flex flex-column flex-md-row justify-content-between pt-0 pb-2">
-                <h4>
-                    {{ testName}} - (<span class="factor-name" style="color: #000;">{{ getCurrentFactor().factorName}}</span>)
-                </h4>
-                <span class="text-uppercase text-md-end"> QUESTION {{ getCurrentQuestionNumberBar()}} OF {{ getCurrentFactorTotalQuestions()}}
+                <h4>{{ testName}}</h4>
+                
+                <span class="text-uppercase text-md-end"> QUESTION {{ getCurrentQuestionNumber()}} OF {{ totalQuestions}}
                 </span>
             </div>
             <!-- Progress Bar -->
@@ -421,39 +410,13 @@
                 </div>
             </div>
 
-
+            <div ng-if="!isOnline" class="alert alert-danger text-center">
+                No Internet Connection. Please check your network.
+            </div>
             <!-- Question Area -->
             <div class="form_content m-2">
-
-                <!-- ✅ Show Test Instruction Page -->
-                <div ng-if="showTestInstruction" class="py-5 text-center">
-                    <div class="test-instruction mb-4 p-4 bg-light rounded">
-                        <h3 class="mb-3">Instructions</h3>
-                        <p class="lead" style="text-align: left;" ng-bind-html="testInstruction"></p>
-                    </div>
-                    <button class="btn btn-warning mt-3"
-                            ng-click="startTest()">
-                        Continue
-                    </button>
-                </div>
-
-                <!-- ✅ Factor Description Page -->
-                <div ng-if="!showTestInstruction && currentQuestionIndex === - 1" class="py-5 text-center">
-                    <div class="factor-description mb-4 p-4 bg-light rounded">
-                        <h4 class="mb-3" ng-if="getCurrentFactor().paragraphQuestion === 'TRUE'">
-                            {{ getCurrentFactor().factorName | properCase}} Test
-                        </h4>
-                        <p class="lead" style="text-align: left;" ng-bind-html="getCurrentFactor().factor_description"></p>
-                        <div ng-if="getCurrentFactor().paragraphQuestion === 'TRUE'" class="mt-3">
-                            <p style="text-align: left;" ng-bind-html="getCurrentFactor().paragraphText"></p>
-                        </div>
-                        <!--                        <div class="mt-3">
-                                                    <strong>Number of questions:</strong> {{ getCurrentFactorTestQuestionCount()}}
-                                                </div>-->
-                    </div>
-
-
-                    <!-- Memory Question Notice -->
+                <div ng-if="currentQuestionIndex === - 1" class="py-5 text-center">
+                    <!-- Check for Memory Question -->
                     <div ng-if="getCurrentFactor().memoryQuestion === 'TRUE'">
                         <h2 class="text-capitalize">{{ getCurrentFactor().factor_description}}</h2>
                         <div class="text-center mt-4">
@@ -465,139 +428,59 @@
                             <img ng-src="{{ getCurrentFactor().memoryImagePath}}" alt="Memory Master Image" class="img-fluid" style="width: 60%; height: auto; max-height: 90vh; object-fit: contain;" />
                         </div>
                     </div>
-
-                    <!-- Paragraph Question Notice -->
-                    <div ng-if="getCurrentQuestion().paragraphQuestion === 'TRUE'" class="paragraph-section mb-4 text-left">
-                        <hr>
-                        <div ng-bind-html="getCurrentQuestion().paragraphText"></div>
-                        <hr>
+                    <!-- Check for Paragraph Question -->
+                    <div ng-if="showParagraphText && currentQuestionIndex === - 1" class="text-center py-5">
+                        <h2 class="text-start">{{ getCurrentFactor().paragraphText}}</h2>
+                        <p class="mt-3">{{ getCurrentFactor().paragraph_text}}</p>
+                        <!-- Just dismiss the paragraph and let goToNext handle the next step -->
+                        <button class="btn btn-warning mt-4" ng-click="showParagraphText = false; goToNext();"> Continue to Questions </button>
                     </div>
-
-                    <!-- Show Start Test button if no memory/paragraph -->
-                    <button class="btn btn-warning mt-3" 
-                            ng-if="getCurrentFactor().memoryQuestion !== 'TRUE' && !showParagraphText"
-                            ng-click="startQuiz()">
-                        Start Test
-                    </button>
+                    <!-- Display Test Instruction Only If Memory Question Is Not Present -->
+                    <p style="text-align: left;" ng-bind-html="testInstruction"></p>
+                    <!-- Proceed to Questions (Only Show After Memory Question) -->
+                    <button class="btn btn-warning mt-3" ng-if="getCurrentFactor().memoryQuestion !== 'TRUE' && !showParagraphText" ng-click="startQuiz()">Start Test</button>
                 </div>
-
-
-
-
-
-                <!-- Question Area -->
                 <!-- Question Area -->
                 <div ng-if="getCurrentQuestion()" class="question_title py-4">
-
-                    <!-- Training Mode Message -->
-                    <div ng-if="getCurrentQuestion().is_demo == '0'" class="training-banner" style="color: #ff7c07; font-size:23px;">
-                        🛈 Training Mode – This question is for practice only
-                    </div>
-
-                    <!-- Test Mode Message -->
-                    <div ng-if="getCurrentQuestion().is_demo != '0' && isFirstTestQuestion()" class="training-banner" style="font-size:23px;">
-                        📝 Test Mode – This question will be scored
-                    </div>
-
-                    <!-- ✅ Display Paragraph Text on Top if Question has Paragraph -->
-                    <div ng-if="getCurrentQuestion().paragraphQuestion === 'TRUE'" class="paragraph-section mb-4">
-                        <hr>
-                        <div class="mt-3" ng-bind-html="getCurrentQuestion().paragraphText"></div>
-                        <hr>
-                    </div>
-
-                    <!-- Question Text -->
-                    <div ng-if="getCurrentQuestion().is_demo == '0'" class="text-md-left">
+                    <div ng-if="getCurrentQuestion().question_text" class="text-center">
                         <h3 class="text-start">
-                            {{ getAlphabetLabel(getCurrentFactorQuestionNumber().currentDemo || getCurrentFactorQuestionNumber().currentTest)}}. 
+                            {{ getCurrentQuestionNumber()}}. 
                             <span ng-bind-html="getCurrentQuestion().question_text"></span> 
                         </h3>
                     </div>
-
-                    <div ng-if="getCurrentQuestion().question_text && getCurrentQuestion().is_demo != '0'" class="text-md-left">
-                        <h3 class="text-start">
-                            {{ getCurrentFactorQuestionNumber().currentDemo || getCurrentFactorQuestionNumber().currentTest}}. 
-                            <span ng-bind-html="getCurrentQuestion().question_text"></span> 
-                        </h3>
-                    </div>
-
-                    <!-- Question Image -->
                     <div ng-if="getCurrentQuestion().question_image" class="text-center my-3">
-                        <h3 class="text-capitalize">{{ getCurrentFactorQuestionNumber().currentDemo || getCurrentFactorQuestionNumber().currentTest}}.</h3>
-                        <img ng-src="{{ getCurrentQuestion().question_image}}" 
-                             class="img-fluid rounded mx-auto question-image" 
-                             alt="Question Image">
+                        <img ng-src="{{ getCurrentQuestion().question_image}}" class="img-fluid rounded mx-auto" style="max-width: 200px;" alt="Question Image">
                     </div>
-
-                    <!-- Feedback Message -->
-                    <div class="mt-3 text-center" ng-if="feedbackMessage">
-                        <div ng-class="{'alert alert-success': feedbackMessage.type === 'success', 'alert alert-danger': feedbackMessage.type === 'error'}">
-                            {{ feedbackMessage.text}}
-                        </div>
-                    </div>
-
-
-
                     <div class="row form_items justify-content-center">
-                        <div class="col-12 col-sm-6 col-md-4 col-lg-3"
-                             ng-repeat="opt in getCurrentQuestion().options track by $index"
-                             ng-style="{'border': selectedAnswer[getCurrentQuestion().id]?.option_id === opt.id ? '5px solid #fe7505' : '5px solid #e1e1e1'}"
-                             style="margin: 10px; border-radius: 8px;">
-
-                            <label class="bg-white text-center w-100 h-100 animate__animated animate__fadeInRight"
-                                   style="cursor: pointer;"
-                                   ng-click="selectOption(getCurrentQuestion().id, opt)">
-
-                                <span style="font-size: 1.7rem; font-weight: bold;">({{ getOptionLabel($index)}}) &nbsp;</span>
-
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3" ng-repeat="opt in getCurrentQuestion().options" ng-style="{'border': selectedAnswer[getCurrentQuestion().id] === opt ? '5px solid #fe7505' : '5px solid #e1e1e1'}" style="margin: 10px; border-radius: 8px;">
+                            <label class="step_1 bg-white text-center w-100 h-100 animate__animated animate__fadeInRight" style="cursor: pointer;" ng-click="selectOption(getCurrentQuestion().id, opt)">
                                 <div class="step_box_icon" ng-if="opt.option_image">
-                                    <div ng-if="!opt.imageLoaded" class="spinner-border text-warning" role="status">
+                                    <div ng-if="opt.option_image" ng-show="!opt.imageLoaded" class="spinner-border text-warning" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
                                     <img ng-if="opt.option_image" ng-src="{{ opt.option_image}}" class="img-fluid" ng-init="opt.imageLoaded = false" ng-load="opt.imageLoaded = true" alt="Option Image" />
                                 </div>
-
                                 <span class="step_box_text" ng-if="opt.option_text">
                                     {{ opt.option_text}}
                                 </span>
-
                                 <input type="radio"
                                        name="question_{{ getCurrentQuestion().id}}"
                                        ng-model="selectedAnswer[getCurrentQuestion().id].option_id"
                                        ng-value="opt.id"
                                        ng-checked="selectedAnswer[getCurrentQuestion().id].option_id == opt.id"
                                        ng-click="selectOption(getCurrentQuestion().id, opt)" />
+
                             </label>
                         </div>
                     </div>
-
-                    <!-- Navigation Buttons -->
                     <div class="pt-4 d-flex justify-content-between">
-                        <button class="next_btn text-uppercase text-white"
-                                ng-click="goToPrevious()"
-                                ng-disabled="currentFactorIndex === 0 && currentQuestionIndex === - 1">
-                            Previous
-                        </button>
-
+                        <button class="next_btn text-uppercase text-white" ng-click="goToPrevious()" ng-disabled="currentFactorIndex === 0 && currentQuestionIndex === - 1"> Previous </button>
                         <div>
-                            <!-- Change button text dynamically -->
-                            <button class="next_btn btn-warning text-uppercase text-white"
-                                    ng-click="goToNext()"
-                                    ng-if="getCurrentQuestionNumber() < totalQuestions">
-                                {{ isDemoToTestTransition() ? 'Start Test' : 'Next'}}
-                            </button>
-
-                            <button class="next_btn btn-success text-uppercase text-white"
-                                    ng-click="submitQuiz()"
-                                    ng-if="getCurrentQuestionNumber() === totalQuestions">
-                                Submit
-                            </button>
+                            <button class="next_btn btn-warning text-uppercase text-white" ng-click="goToNext()" ng-disabled="getCurrentQuestionNumber() >= totalQuestions" ng-if="getCurrentQuestionNumber() < totalQuestions"> Next </button>
+                            <button class="next_btn btn-success text-uppercase text-white" ng-click="submitQuiz()" ng-if="getCurrentQuestionNumber() >= totalQuestions"> Submit </button>
                         </div>
                     </div>
-
-
                 </div>
-
             </div>
             <!-- Loader Spinner -->
             <div id="loader" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
