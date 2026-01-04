@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use Config\Database;
 use App\Models\AdminModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -10,14 +11,17 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class PsyMainController extends BaseController {
 
     protected $session;
     protected $adminModel;
+    protected $db;
 
     public function __construct() {
         $session = session();
+        $this->db = Database::connect();
 
         // Check if 'username' exists in the session
         if (!$session->has('username')) {
@@ -92,7 +96,7 @@ class PsyMainController extends BaseController {
         $recentCompletions = $this->adminModel->getRecentCompletions(10);
 
         return $this->response->setJSON([
-            'data' => $recentCompletions
+                    'data' => $recentCompletions
         ]);
     }
 
@@ -100,7 +104,7 @@ class PsyMainController extends BaseController {
         $breakdown = $this->adminModel->getTestCompletionBreakdown();
 
         return $this->response->setJSON([
-            'data' => $breakdown
+                    'data' => $breakdown
         ]);
     }
 
@@ -399,7 +403,7 @@ class PsyMainController extends BaseController {
 
     public function getTestFactorList() {
         // Only apply pagination if limit is explicitly provided
-        $limit = $this->request->getGet('limit') !== null ? (int)$this->request->getGet('limit') : null;
+        $limit = $this->request->getGet('limit') !== null ? (int) $this->request->getGet('limit') : null;
         $offset = $this->request->getGet('offset') ?? 0;
         $search = $this->request->getGet('search') ?? '';
 
@@ -1516,9 +1520,9 @@ class PsyMainController extends BaseController {
 
         // Apply status filter if specified
         if (!empty($status)) {
-            $filteredResults = array_filter($results, function($user) use ($status) {
-                $questionTaken = (int)$user['questionTaken'];
-                $progress = (int)$user['progress'];
+            $filteredResults = array_filter($results, function ($user) use ($status) {
+                $questionTaken = (int) $user['questionTaken'];
+                $progress = (int) $user['progress'];
 
                 switch ($status) {
                     case 'completed':
@@ -1549,34 +1553,41 @@ class PsyMainController extends BaseController {
         ]);
     }
 
-    public function getReportFilterOptions() {
+    public function getReportFilterOptions(): ResponseInterface {
         try {
             // Get unique test names
-            $tests = $this->db->query("
-                SELECT DISTINCT psy_tests.test_name
-                FROM psy_tests
-                WHERE psy_tests.test_name IS NOT NULL AND psy_tests.test_name != ''
-                ORDER BY psy_tests.test_name
-            ")->getResultArray();
+            $tests = $this->db->query(
+                            "SELECT DISTINCT test_name
+                 FROM psy_tests
+                 WHERE test_name IS NOT NULL
+                   AND test_name != ''
+                 ORDER BY test_name"
+                    )->getResultArray();
 
             // Get unique company names
-            $companies = $this->db->query("
-                SELECT DISTINCT psy_user_registration.company_name
-                FROM psy_user_registration
-                WHERE psy_user_registration.company_name IS NOT NULL AND psy_user_registration.company_name != ''
-                ORDER BY psy_user_registration.company_name
-            ")->getResultArray();
+            $companies = $this->db->query(
+                            "SELECT DISTINCT company_name
+                 FROM psy_user_registration
+                 WHERE company_name IS NOT NULL
+                   AND company_name != ''
+                 ORDER BY company_name"
+                    )->getResultArray();
 
             return $this->response->setJSON([
-                'tests' => array_column($tests, 'test_name'),
-                'companies' => array_column($companies, 'company_name')
+                        'tests' => array_column($tests, 'test_name'),
+                        'companies' => array_column($companies, 'company_name')
             ]);
-        } catch (\Exception $e) {
-            log_message('error', 'Failed to get filter options: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'tests' => [],
-                'companies' => [],
-                'error' => $e->getMessage()
+        } catch (\Throwable $e) {
+
+            log_message(
+                    'error',
+                    'Failed to get filter options: ' . $e->getMessage()
+            );
+
+            return $this->response->setStatusCode(500)->setJSON([
+                        'tests' => [],
+                        'companies' => [],
+                        'error' => 'Failed to load filter options'
             ]);
         }
     }
