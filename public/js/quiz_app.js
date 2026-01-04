@@ -159,8 +159,8 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
 
         let factorName = currentFactor ? currentFactor.factorName : 'This section';
         let messageText = unansweredCount > 0
-            ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
-            : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
+                ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
+                : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
 
         Swal.fire({
             title: "⏰ Time's Up!",
@@ -270,7 +270,7 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
                 })
                 .catch(function (error) {
                     console.error("Error fetching quiz data:", error);
-                    window.location.href = "quiz#!/contact-error";
+                    window.location.href = "test#!/contact-error";
                 })
                 .finally(function () {
                     $scope.isLoading = false; // Hide loader after request completes (success or error)
@@ -285,7 +285,6 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
 
     // Function to calculate time taken and show results after submission
     $scope.submitQuiz = function () {
-
         const endTime = Date.now();
         $scope.flushRemainingAnswers();
 
@@ -297,31 +296,22 @@ app.controller("QuizController", function ($scope, $http, $routeParams, $locatio
 
         $scope.totalTimeTaken = `${hours} hours, ${minutes} minutes, ${seconds} seconds`;
 
-        // 2️⃣ Show success alert and WAIT for it
         Swal.fire({
             title: "Test Completed!",
-            text: `You completed the test in ${$scope.totalTimeTaken}. Thank you!`,
+            text: `You completed the quiz in ${$scope.totalTimeTaken}. Thank you!`,
             icon: "success",
-            confirmButtonText: "Continue"
+            confirmButtonText: "Finish"
         }).then(() => {
-
-            // 3️⃣ Call API after Swal confirmation
-            return $http.get('logoutTime', {
-                params: {data: null}
+            // Call backend AFTER user clicks OK
+            $http.get('logoutTime').then(() => {
+                // 🔑 Ensure Angular digest runs
+                $scope.$applyAsync(() => {
+                    $location.path("/cog-quiz-finish")
+                            .search({timeTaken: $scope.totalTimeTaken});
+                });
             });
-
-        }).then(() => {
-
-            $timeout(() => {
-                $location.path("/test-finish")
-                        .search('timeTaken', $scope.totalTimeTaken);
-            });
-
-        }).catch((error) => {
-            console.error("Submit quiz flow failed:", error);
         });
     };
-
 
 
     // Call load on view load
@@ -976,8 +966,8 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
 
         let factorName = currentFactor ? currentFactor.factorName : 'This section';
         let messageText = unansweredCount > 0
-            ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
-            : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
+                ? `Time has expired for <strong>${factorName}</strong>.<br><br>You answered <strong>${answeredCount} of ${totalQuestions}</strong> questions.<br><strong>${unansweredCount} question(s)</strong> will be skipped.`
+                : `Time has expired for <strong>${factorName}</strong>.<br><br>All <strong>${totalQuestions} questions</strong> have been answered.`;
 
         Swal.fire({
             title: "⏰ Time's Up!",
@@ -1101,7 +1091,7 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
                 })
                 .catch(function (error) {
                     console.error("Error fetching quiz data:", error);
-                    window.location.href = "quiz#!/contact-error";
+                    window.location.href = "test#!/contact-error";
                 })
                 .finally(function () {
                     $scope.isLoading = false; // Hide loader after request completes (success or error)
@@ -1152,7 +1142,7 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
                 })
                 .catch(function (error) {
                     console.error("Error fetching test data:", error);
-                    window.location.href = "quiz#!/contact-error";
+                    window.location.href = "test#!/contact-error";
                 })
                 .finally(function () {
                     $scope.isLoading = false; // Hide loader after request completes
@@ -1399,7 +1389,7 @@ app.controller("QuizCognitiveController", function ($scope, $http, $routeParams,
         }
 
         // ✅ Load next question after increment
-       // $scope.loadCurrentQuestion();
+        // $scope.loadCurrentQuestion();
 
         let nextQuestion = $scope.getCurrentQuestion();
         if (nextQuestion) {
